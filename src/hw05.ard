@@ -53,7 +53,8 @@
 
 -- 7. Докажите pmap2, не используя transport, coe и паттерн матчинг с idp
 
-\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' => {?}
+\func pmap2' {A B C : \Type} (f : A -> B -> C) {a a' : A} (p : a = a') {b b' : B} (q : b = b') : f a b = f a' b' =>
+  \lam i => f (p i) (q i)
 
 
 -- 8. Мы видели как определить transport через coe. Определите частный случай coe через transport
