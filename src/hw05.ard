@@ -16,9 +16,6 @@
 
 -- 2. Докажите, что (\lam x => not (not x)) = (\lam x => x)
 
-\func notNotTrue : not(not true) = true => idp
-\func notNotFalse : not(not false) = false => idp
-
 \func notNotIdExt(x : Bool) : not (not x) = x \elim x
   | true => idp
   | false => idp
