@@ -13,7 +13,7 @@
   | snd_ => p.fst_
 
 -- При помощи \new и паттерн матчинга
-\func swap' {A B : \Type} (_ : Pair A B) : Pair B A \elim
+\func swap' {A B : \Type} (_ : Pair A B) : Pair B A \with
   | (a,b) => \new Pair { | fst_ => b | snd_ => a }
 
 -- При помощи \new и доступа к полям
@@ -59,7 +59,7 @@
     | just a => h a
   }
   | left-identity {A B : \Type} (a : A) (h : A -> Maybe B) : Maybe.just a >>= h = h a => idp
-  | right-identity {A : \Type} (m : Maybe A) : m >>= Maybe.just = m \elim {
+  | right-identity {A : \Type} (m : Maybe A) : m >>= Maybe.just = m \with {
     | nothing => idp
     | just a => idp
   }

@@ -1,6 +1,10 @@
 \import Data.Bool
-\import Data.List (List, length)
+\import Data.List (++, List, contains, length, ::)
+\import Function.Meta
 \import Logic
+\import Meta
+\import Paths
+\import Paths.Meta
 \import lect07
 \open Nat(+,*)
 
@@ -8,7 +12,9 @@
 -- 1. Определите предикат принадлежности элемента списку
 
 \data In {A : \Type} (a : A) (xs : List A)
+  | in (pref suf : List A) (pref ++ a :: suf = xs)
 
+\func example : In 2 (1 :: 2 :: 3 :: 4 :: List.nil) => In.in (1 :: List.nil) (3 :: 4 :: List.nil) idp
 
 -- Optional:
 -- 2. Докажите эквивалентность четырех различных определений LessOrEq: lessOrEq, lessOrEq', LessOrEq и LessOrEq'
@@ -33,9 +39,13 @@
 
 -- 5. Определите предикат Sublist xs ys на списках, означающий "список xs является подсписком ys"
 
+\data Sublist {A : \Type} (xs ys : List A)
+--   | sublist (p : A -> Bool) (filter p ys = xs)
+  | sublist (a : A) (In a xs -> In a ys)
 
 -- 6. Докажите, что Sublist (filter p xs) xs для любых p и xs
 
+\func helper {A : \Type} (a : A) (xs : List A) (i : In a xs) (p : A -> Bool) (q : So (p a)) : In a (filter p xs) => {?}
 
 -- 7. Определите filter через if, а не через \case
 --    Докажите для этой версии filter лемму filter-lem
@@ -47,12 +57,26 @@
 
 -- 8. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции
 
+\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x
+  => cases (f x arg addPath, f true arg addPath, f false arg addPath) \with {
+    | false, p, false, p1, false, p2 => rewrite (p2, p2) idp
+    | false, p, false, p1, true, p2 => rewrite (p2, p1) idp
+    | false, p, true, p1, false, p2 => rewrite (p2, p2) idp
+    | false, p, true, p1, true, p2 => \case x \as y, p : f y = false \return f (f false) = false \with {
+      | false, p3 => \case inv p3 *> p2
+      | true, p3 => \case inv p3 *> p1
+    }
+    | true, p, false, p1, false, p2 => {?}
+    | true, p, false, p1, true, p2 => {?}
+    | true, p, true, p1, false, p2 => {?}
+    | true, p, true, p1, true, p2 => {?}
+  }
 
 -- 9. Докажите, что предикат isEven разрешим
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
 
-\func isEven-dec : DecPred isEven => {?}
+\func isEven-dec : DecPred isEven => \lam a => {?}
 
 
 -- 10. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо
@@ -85,4 +109,7 @@
 --     Верно, что в общем случае существование такого утверждения влечет противоречие
 --     Это легко доказать при помощи исключенного третьего, но утверждение верно и без него
 --     Докажите этот факт
-\func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty => {?}
+\func contrProp {A : \Type} (p : A -> Not A) (q : Not A -> A) : Empty => p1 $ q p1
+    \where {
+      \func p1 : Not A => \lam a => p a a
+    }
