@@ -45,7 +45,6 @@
 
 -- 6. Докажите, что Sublist (filter p xs) xs для любых p и xs
 
-\func helper {A : \Type} (a : A) (xs : List A) (i : In a xs) (p : A -> Bool) (q : So (p a)) : In a (filter p xs) => {?}
 
 -- 7. Определите filter через if, а не через \case
 --    Докажите для этой версии filter лемму filter-lem
@@ -57,26 +56,10 @@
 
 -- 8. Закончите определение функции \func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x из лекции
 
-\func BoolFuncLem (f : Bool -> Bool) (x : Bool) : f (f (f x)) = f x
-  => cases (f x arg addPath, f true arg addPath, f false arg addPath) \with {
-    | false, p, false, p1, false, p2 => rewrite (p2, p2) idp
-    | false, p, false, p1, true, p2 => rewrite (p2, p1) idp
-    | false, p, true, p1, false, p2 => rewrite (p2, p2) idp
-    | false, p, true, p1, true, p2 => \case x \as y, p : f y = false \return f (f false) = false \with {
-      | false, p3 => \case inv p3 *> p2
-      | true, p3 => \case inv p3 *> p1
-    }
-    | true, p, false, p1, false, p2 => {?}
-    | true, p, false, p1, true, p2 => {?}
-    | true, p, true, p1, false, p2 => {?}
-    | true, p, true, p1, true, p2 => {?}
-  }
 
 -- 9. Докажите, что предикат isEven разрешим
 
 \func isEven (n : Nat) => \Sigma (k : Nat) (n = 2 * k)
-
-\func isEven-dec : DecPred isEven => \lam a => {?}
 
 
 -- 10. Докажите, что если равенство элементов A разрешимо, то и равенство элементов List A тоже разрешимо
