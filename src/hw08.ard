@@ -1,9 +1,13 @@
+\import Arith.Nat
 \import Data.Bool
 \import Data.List \hiding (headDef)
+\import Paths.Meta
+\import hw01 (fac)
 \import hw07
-\import lect08
+\import lect08 \hiding (not-isInv)
 \import Order.LinearOrder
 \open LinearOrder
+\open Nat (*)
 
 -- 1. Реализуйте функцию filter и докажите ее корректность, то есть, что выполнены следующие условия:
 --    * filter p xs является подсписком xs
@@ -20,13 +24,36 @@
 -- 4. Определите факториал через хвостовую рекурсию
 --    Докажите, что он равен обычному определению факториала
 
+\func fact (n : Nat) : Nat => helper n 1
+  \where {
+    \func helper (n : Nat) (acc : Nat) : Nat \elim n
+      | 0 => acc
+      | suc n => helper n (acc * suc n)
+  }
+
+\func fact-eq : fac = fact => ext before-ext
+    \where {
+      \func before-ext (n : Nat) : fac n = fact n => rewriteI NatSemiring.ide-left (helper-unroll n 1)
+    }
+
+\func helper-unroll (n b : Nat) : b * fac n = fact.helper n b \elim n
+  | 0 => idp
+  | suc a => rewrite idp (rewriteI NatSemiring.*-assoc (helper-unroll a (b * suc a)))
+
 -- 5. Определите функцию, которая проверяет правильность скобочной последовательности
 --    Докажите ее корректность
 
 \data Paren | Left | Right
 
 \func isBalanced (xs : List Paren) : Bool
-  => {?}
+  => isBalanced-suffix xs 0
+
+\func isBalanced-suffix (xs : List Paren) (b : Nat) : Bool \elim xs, b
+  | nil, 0 => true
+  | nil, _ => false
+  | Left :: xs, 0 => false
+  | Left :: xs, b => isBalanced-suffix xs b
+  | Right :: xs, b => isBalanced-suffix xs (suc (suc b))
 
 \data Balanced (xs : List Paren) \with
   | nil => nil-balanced
