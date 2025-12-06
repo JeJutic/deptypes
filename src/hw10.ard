@@ -1,8 +1,12 @@
+\import Algebra.Monoid
 \import Data.Bool
 \import Data.List
 \import Data.Or
 \import Function \hiding (isInj)
+\import Function.Meta
 \import Logic
+\import Paths (inv, pmap, transport)
+\import lect03 (trans)
 \import lect07 (Decide)
 \import lect10
 
@@ -11,15 +15,17 @@
 --    Докажите, что если f и g инъективны, то g o f также инъективна
 --    Докажите, что если g o f инъективна, то f также инъективна
 
-\func o-inj {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj f) (q : isInj g) : isInj (g o f) => {?}
+\func o-inj {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj f) (q : isInj g) : isInj (g o f) =>
+  \lam p1 => p (q p1)
 
-\func o-inj' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj (g o f)) : isInj f => {?}
+\func o-inj' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isInj (g o f)) : isInj f => \lam p1 => p (pmap g p1)
 
 
 -- 2. Определите предикат "делится на 3 или на 5" так, чтобы он возвращал утверждения
 --    Докажите, что MultipleOf3Or5 вкладывается в Nat
 
-\func isMultipleOf3Or5 (n : Nat) : \Type => {?}
+\func isMultipleOf3Or5 (n : Nat) : \Type =>
+  \Sigma (n : Nat) ((mod3 n = 0) `Or` (\Sigma (mod5 n = 0) (Not (mod3 n = 0))))
 
 \func isMultipleOf3Or5-isProp (n : Nat) : isProp (isMultipleOf3Or5 n) => {?}
 
@@ -37,8 +43,10 @@
 
 \func \infix 1 <-> (A B : \Type) => \Sigma (A -> B) (B -> A)
 
-\func isTriv-lem (A : \Type) : isTriv A <-> (\Sigma (isProp A) A) => {?}
-
+\func isTriv-lem (A : \Type) : isTriv A <-> (\Sigma (isProp A) A) => (
+  \lam (a, p) => (\lam x y => trans (inv $ p x) (p y), a),
+  \lam (p, a) => (a, p a __)
+)
 
 -- 4. Докажите, что Or не является утверждением в общем случае
 
@@ -72,7 +80,7 @@
 
 -- 7. Докажите, что если тип A вкладывается в тип B и B является утверждением, то и A является утверждением
 
-\func sub-isProp {A B : \Type} (f : A -> B) (p : isInj f) (q : isProp B) : isProp A => {?}
+\func sub-isProp {A B : \Type} (f : A -> B) (p : isInj f) (q : isProp B) : isProp A => \lam x y => p $ q (f x) (f y)
 
 
 -- 8. Докажите, что тип с разрешимым равенством является множеством
