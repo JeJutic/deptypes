@@ -1,14 +1,38 @@
 \import Function (o)
+\import Function.Meta
 \import Logic
+\import Order.LinearOrder
+\import hw07 (contrProp)
+\import lect01 (-)
+\import lect05 (unext)
+\import lect11 (equality=>equivalence)
 \import lect12 \hiding (Int', pos, neg)
+\import Arith.Nat (NatSemiring)
+\import Equiv
+\import Function.Meta
+\import Logic
+\import Order.LinearOrder
+\import Paths
 
 -- 1. Определите функцию negPred : Int -> Int такую, что negPred x = x, если x > 0, и negPred x = x - 1, если x <= 0
 
-\func negPred (x : Int) : Int => {?}
+\func negPred (x : Int) : Int \elim x
+  | pos (suc n) => suc n
+  | pos 0 => neg 1
+  | neg n => neg (suc n)
 
 -- 2. Определите функции сложения и умножения для Int
 
-\func \infixl 6 + (x y : Int) : Int => {?}
+-- in progress...
+\func \infixl 6 + (x y : Int) : Int \with
+  | pos n, pos n1 => pos (n Nat.+ n1)
+  | pos n, neg n1 => \case LinearOrder.trichotomy n n1 \with {
+    | less _ => neg $ n1 - n
+    | equals _ => pos 0
+    | greater _ => pos $ n - n1
+  }
+  | neg n, pos n1 => {?}
+  | neg n, neg n1 => neg (n Nat.+ n1)
 
 \func \infixl 7 * (x y : Int) : Int => {?}
 
@@ -18,6 +42,9 @@
 --    Используйте типы данных с условиями, чтобы вычислительно отождествить различные нули
 
 \data BinNat
+  | zero
+  | n2 (n : Nat) {x : Nat} (n * 2 = x) \with { 0, _ => zero }
+  | n21 (n : Nat) {x : Nat} (n * 2 + 1 = x)
 
 -- 4. Докажите, что функция pred сюръективна
 
@@ -25,19 +52,27 @@
   | 0 => 0
   | suc n => n
 
-\func pred-is-sur : isSurj pred => {?}
+\func pred-is-sur : isSurj pred => \lam b => inP (suc b, idp)
 
 -- 5. Докажите, что функция suc не сюръективна
 
-\func suc-is-not-sur (p : isSurj suc) : Empty => {?}
+-- TruncP.remove' is \lemma
+\func not-truncPEmpty : Not (TruncP Empty) => \lam (inP a) => a
+
+\func suc-is-not-sur (p : isSurj suc) : Empty => not-truncPEmpty $ TruncP.map (p 0) (\lam (a, q) => \case q \with {})
 
 -- 6. Пусть f : A -> B и g : B -> C ─ некоторые функции
 --    Докажите, что если f и g сюръективны, то g o f также сюръективна
 --    Докажите, что если g o f сюръективна, то g также сюръективна
 
-\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSurj f) (q : isSurj g) : isSurj (g o f) => {?}
+\func TruncP-flatMap {A B : \Type} (t : TruncP A) (f : A -> TruncP B) : TruncP B \elim t
+  | inP a => f a
 
-\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSurj (g o f)) : isSurj g => {?}
+\func o-sur {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSurj f) (q : isSurj g) : isSurj (g o f) =>
+  \lam c => TruncP-flatMap (q c) $ \lam (b, r) => TruncP.map (p b) (\lam (a, s) => (a, pmap g s *> r))
+
+\func o-sur' {A B C : \Type} (f : A -> B) (g : B -> C) (p : isSurj (g o f)) : isSurj g =>
+  \lam b => TruncP.map (p b) $ \lam (a, q) => (f a, q)
 
 -- 7. Определите множество конечных подмножеств множества A,
 --    то есть списков элементов A с точностью до перестановок и повторений элементов
@@ -56,11 +91,36 @@
 -- "существует инъекция из A в Subs A" и "не существует сюръекции из A в Subs A"
 -- Здесь поможет contrProp из hw07
 
-\func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f)
-  => (=, =-isInj)
+\func cantor1 (A : \Set) : \Sigma (f : A -> Subs A) (isInj f) => (=, =-isInj)
 
-\func cantor2 (A : \Set) (f : A -> Subs A) (p : isSurj f) : Empty
-  => {?}
+\func cantor2 (A : \Set) (f : A -> Subs A) (p : isSurj f) : Empty =>
+  not-truncPEmpty $ TruncP.map (p contradict) \lam (a, q) =>
+      \have | equivv : Equiv => equality=>equivalence (unext q a)
+      \in contrProp {(f a) a} (\lam faa => \lam _ => equivv faa faa)
+          (\lam t => equivv.sec t)
+  \where {
+    \func contradict (a : A) => Not ((f a) a)
+
+    --     \func setSingleton (a a' : A): \Prop => a = a'
+    --     \func emptySet (a : A) : \Prop => a = a
+    --
+
+    --     \func equivv (a : A) (q : f a = contradict) : Equiv {f a a} {contradict a} => equality=>equivalence {f a a} {contradict a} (unext q a)
+    --
+--     -- f(A) = setSignleton ?
+    --
+--     \func finv (a : A) : TruncP (\Sigma (a1 : A) (f a1 = setSingleton a)) => p (setSingleton a)
+    --
+--     \func finv' (a : A) : TruncP A => TruncP.map (finv a) \lam b => b.1
+    --
+--     --     \func obvious : isInj finv => {?}
+    --
+--     --     \func absurd (q : isSurj finv') : Empty => TruncP.map emptySetInv (\lam (a, r) => q (inP a))
+    --
+--     \func emptySetInv : TruncP (\Sigma (a1 : A) (f a1 = emptySet)) => p emptySet
+    --
+--     -- exists A -> B surj, exists B -> A inj => exists A <-> B bijection?
+  }
 
 -- Optional
 -- 9. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны
