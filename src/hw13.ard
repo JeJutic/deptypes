@@ -1,11 +1,14 @@
-\import Data.Array (++, ++', filter, find, keep)
+\import Arith.Nat
+\import Data.Array (++, filter, find, index-dec, keep, nub)
 \import Data.Bool
 \import Data.Or
 \import Equiv
 \import Function
 \import Function.Meta
 \import Logic
+\import Logic.Meta
 \import Meta
+\import Order.PartialOrder
 \import Paths
 \import Paths.Meta
 \import Relation.Equivalence
@@ -124,19 +127,49 @@
 \func arrayUnion {A : \Set} (a b : ArraySet A) : ArraySet A \elim a
   | in~ a => \case b \with {
     | in~ b => in~ $ a ++ b
-    -- EqArray (in~ $ a ++ x) (in~ $ a ++ y)
-    | ~-equiv x y r => mcases
+    -- (in~ $ a ++ x) = (in~ $ a ++ y)
+    | ~-equiv x y r => Quotient.~-equiv {Array A} {EqArray} (a ++ x) (a ++ y) (\lam c =>
+        \have
+          | one-side {x' y' : Array A} (r' : EqArray x' y') : In c (a ++ x') -> In c (a ++ y') =>
+            \case __ \with {
+              | inP (x_index, p) => \case ++.split-index x_index \with {  -- lol ++_index-right signature is inconsistent with ++_index-left
+                | inl (j, i=left_j) => inP (++.index-left j, ++.++_index-left j *> (inv $ ++.++_index-left j) *> pmap ((a ++ x') __) (inv i=left_j) *> p)
+                | inr (j, i=right_j) => TruncP.map ((r' c).1 (inP (j, (inv $ ++.++_index-right {A} {a} {x'} {j}) *> pmap ((a ++ x') __) (inv i=right_j) *> p)))
+                    (\lam (y_index, q) => (++.index-right {A} {a} {y'} y_index, ++.++_index-right {A} {a} {y'} {y_index} *> q))
+              }
+            }
+        \in
+          (
+            one-side r,
+            one-side (sym-EqArray r)
+          ))
   }
-  | ~-equiv x y r => mcases
+  | ~-equiv x y r => cases b \with {
+    | in~ a => Quotient.~-equiv {Array A} {EqArray} (x ++ a) (y ++ a) (\lam c =>  -- copy-paste
+        \have
+          | one-side {x' y' : Array A} (r' : EqArray x' y') : In c (x' ++ a) -> In c (y' ++ a) =>
+            \case __ \with {
+              | inP (x_index, p) => \case ++.split-index x_index \with {
+                | inl (j, i=left_j) => TruncP.map ((r' c).1 (inP (j, (inv $ ++.++_index-left j) *> pmap ((x' ++ a) __) (inv i=left_j) *> p)))
+                    (\lam (y_index, q) => (++.index-left {A} {y'} {a} y_index, ++.++_index-left y_index *> q))
+                | inr (j, i=right_j) => inP (++.index-right j, ++.++_index-right {A} {y'} {a} {j} *> (inv $ ++.++_index-right {A} {x'} {a} {j}) *> pmap ((x' ++ a) __) (inv i=right_j) *> p)
+              }
+            }
+        \in
+          (
+            one-side r,
+            one-side (sym-EqArray r)
+          ))
+  }
 
 \func union {S : FinSetSpec} (a b : S) : S => arraySetEquiv (arrayUnion (Retraction.sec {arraySetEquiv} a) (Retraction.sec {arraySetEquiv} b))
 
 -- 6. Определите функцию intersection {A : DecSet} : S -> S -> S для ArraySet и для произвольного S (удовлетворяющего FinSetSpec)
 
 \func arrayIntersection {A : DecSet} (a b : ArraySet A) : ArraySet A \elim a, b
-  | in~ a, in~ b => in~ $ filter (\lam a' => \case find (dec_decide $ decideEq a' __) b \with {
-    | inl (j, _ : a' = b j, _) => true
-    | inr _ => false
+  | in~ a, in~ b => in~ $ keep (\lam a' => \case index-dec a a' \with {
+    | inl index : Index a a' => yes $ inP index
+    | inr notIndex => no (inP notIndex)
   }) a
   | in~ a, ~-equiv x y r => {?}
   | ~-equiv x y r, in~ a => {?}
@@ -149,9 +182,34 @@
 --    b) Определите функцию size из лекции
 --    c) Докажите, что size-le эквивалентно определению через size, если A -- разрешимо и S -- конечно
 
-\func size-le {S : SetSpec} (s : S) (n : Nat) : \Prop => {?}
+\func size-le {S : SetSpec} (s : S) (n : Nat) : \Prop => ∃ (f : Fin n -> \Sigma (a : S.A) (a S.`isElem` s)) (isSurj f)
 
-\func size {A : DecSet} {S : FinSetSpec {A}} (s : S) : Nat => {?}
+-- \func count {A : DecSet} (l : Array A) : Nat => DArray.len {nub l}
+
+\func sym-EqArray {A : \Set} {xs ys : Array A} (p : EqArray xs ys) : EqArray ys xs => \lam a => <->sym (p a)
+
+\func nub-In-agnostic {A : DecSet} {l : Array A} : In (nub l) l => \lam a => {?} -- do we need it?
+
+\func nub-EqArray {A : DecSet} {xs ys : Array A} (p : EqArray xs ys) : EqArray (nub xs) ys => \lam a => (
+  {?},
+  {?}
+                                                                                                        )
+
+\func nub-len<= {A : DecSet} {xs ys : Array A} (p : EqArray xs ys) : DArray.len {nub xs} NatSemiring.<= DArray.len {ys} => {?}
+
+\func size {A : DecSet} {S : FinSetSpec {A}} (s : S) : Nat => \case Retraction.sec {arraySetEquiv} s \with {
+  | in~ a => DArray.len {nub a}
+  | ~-equiv x y r => \have
+    | nub-eq : EqArray x (nub y) => sym-EqArray $ nub-EqArray (sym-EqArray r)
+    | nub-eq' : EqArray y (nub x) => sym-EqArray (nub-EqArray r)
+                     \in <=-antisymmetric (nub-len<= nub-eq) (nub-len<= nub-eq')
+}
+
+\func size=>size-le {A : DecSet} {S : FinSetSpec {A}} {n : Nat} (s : S) : size s NatSemiring.<= n = size-le s n =>
+  <->_=.1 (
+    \lam size<=n => {?},
+    {?}
+          )
 
 
 -- Optional
