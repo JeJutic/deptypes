@@ -1,9 +1,18 @@
+\import Data.Array (++, ++', filter, find, keep)
 \import Data.Bool
+\import Data.Or
+\import Equiv
 \import Function
+\import Function.Meta
 \import Logic
+\import Meta
 \import Paths
+\import Paths.Meta
 \import Relation.Equivalence
 \import Set
+\import hw12 (not-truncPEmpty)
+\import lect05 (unext)
+\import lect11 (equality=>equivalence)
 \import lect13
 
 
@@ -35,34 +44,104 @@
 -- 2. Докажите, что множество подмножеств является инстансом SetSpec
 
 \instance subsets {A : \Set} : SetSpec {A} (A -> \Prop)
-  | isElem => {?}
-  | set-ext => {?}
-  | empty => {?}
-  | empty-prop => {?}
-  | add => {?}
-  | add-head => {?}
-  | add-tail => {?}
-  | add-prop => {?}
+  | isElem (a : A) (s : A -> \Prop) : \Prop => s a
+  | set-ext {xs ys : A -> \Prop} (p : \Pi (a : A) -> xs a <-> ys a) : xs = ys =>
+  \have
+    q (a : A) : xs a = ys a => <->_=.1 (p a)
+  \in ext q
+  | empty : A -> \Prop => \lam a => Empty
+  | empty-prop {a : A} : Not (empty a) => \lam e => e
+  | add (a : A) (s : A -> \Prop) : A -> \Prop => \lam a1 => (a = a1) || s a1
+  | add-head {x : A} {xs : A -> \Prop} : (add x xs) x => byLeft idp
+  | add-tail {x y : A} {xs : A -> \Prop} (p : xs x) : (add y xs) x => byRight p
+  | add-prop {x y : A} {xs : A -> \Prop} (p : (add x xs) y) : (x = y) || xs y => p
 
 -- 3. Докажите, что множество подмножеств является наибольшим инстансом, то есть любой другой вкладывается в него
 
-\func subsets-largest (S : SetSpec) : \Sigma (f : S -> S.A -> \Prop) (isInj f) => {?}
+\func subsets-largest (S : SetSpec) : \Sigma (f : S -> S.A -> \Prop) (isInj f) => (
+  isElem-func __ __,
+  isElem= __
+)
+  \where {
+    --     \func set-singleton (s : S) : S.A -> \Prop => \lam a => S.isElem a s
+
+    \func isElem-func (s : S) : S.A -> \Prop => S.isElem __ s
+
+    -- взаимно рекурсивные мб
+    -- равенство пропов очев
+    \func add-isElem= {s1 s2 : S} {a : S.A} (p : isElem-func s1 = isElem-func s2) : isElem-func (S.add a s1) = isElem-func (S.add a s2) =>
+      ext (\lam _ => <->_=.1 (one-side p __, one-side (inv p) __))
+      \where {
+        \func one-side {s3 s4 : S} {a' : S.A} (q : isElem-func s3 = isElem-func s4) (r : isElem-func (S.add a s3) a') : isElem-func (S.add a s4) a' =>
+          \case S.add-prop r \with {
+            | byLeft a=a' => transport (S.isElem __ (S.add a s4)) a=a' S.add-head
+            | byRight a_in_s3 => S.add-tail (transport id (unext q a') a_in_s3)
+          }
+      }
+
+    \func isElem= {s1 s2 : S} (p : isElem-func s1 = isElem-func s2) : s1 = s2 => {?}
+  }
 
 
 -- 4. Определите функцию isEmpty для ArraySet и для произвольного конечного множества
 
 \func isEmptyArraySet {A : \Set} (xs : ArraySet A) : Bool \elim xs
-  | in~ a => {?}
-  | ~-equiv x y r i => {?}
+  | in~ a => \case a \with {
+    | nil => true
+    | a1 :: l => false
+  }-- EqArray in~ x in~ y
+  | ~-equiv x y r => cases (x arg addPath, y arg addPath) \with {
+    | nil, _, nil, q => idp
+    | nil, p, :: a1 l : DArray (A : Fin (suc n) -> \Type), q => \have
+      | in : In a1 (:: a1 l) => inP (0, idp)
+      | eq : y = (:: a1 l) => q
+      | in' : In a1 y => transport (In a1 __) (inv eq) in
+      \in \case not-truncPEmpty $ TruncP.map ((r a1).2 in') (
+        \lam i => \case transport id (pmap Fin (pmap (\lam arr => DArray.len {arr}) p)) i.1 \with {}
+                                                            ) \with {}
+    | a1 :: l, p, nil, q => \have -- copy-pasted
+      | in : In a1 (:: a1 l) => inP (0, idp)
+      | eq : x = (:: a1 l) => p
+      | in' : In a1 x => transport (In a1 __) (inv eq) in
+                            \in \case not-truncPEmpty $ TruncP.map ((r a1).1 in') (
+        \lam i => \case transport id (pmap Fin (pmap (\lam arr => DArray.len {arr}) q)) i.1 \with {}
+      ) \with {}
+    | a1 :: l, _, a2 :: l1, _ => idp
+  }
 
-\func isEmptySet {S : FinSetSpec} (s : S) : Bool => {?}
+\func arraySetEquiv {S : FinSetSpec} : Equiv {ArraySet S.A} {S} => equality=>equivalence arraySet=Set
+
+\func isEmptySet {S : FinSetSpec} (s : S) : Bool => isEmptyArraySet (Retraction.sec {arraySetEquiv} s)
 
 
 -- 5. Определите функцию union {A : \Set} : S -> S -> S для ArraySet и для произвольного S (удовлетворяющего FinSetSpec)
 
+-- \func arrayUnion {A : \Set} (a b : ArraySet A) : ArraySet A \elim a, b
+--   | in~ a, in~ a1 => in~ $ a ++ a1
+--   | in~ a, ~-equiv x y r => mcases
+--   | ~-equiv x y r, in~ a => {?}
+
+\func arrayUnion {A : \Set} (a b : ArraySet A) : ArraySet A \elim a
+  | in~ a => \case b \with {
+    | in~ b => in~ $ a ++ b
+    -- EqArray (in~ $ a ++ x) (in~ $ a ++ y)
+    | ~-equiv x y r => mcases
+  }
+  | ~-equiv x y r => mcases
+
+\func union {S : FinSetSpec} (a b : S) : S => arraySetEquiv (arrayUnion (Retraction.sec {arraySetEquiv} a) (Retraction.sec {arraySetEquiv} b))
 
 -- 6. Определите функцию intersection {A : DecSet} : S -> S -> S для ArraySet и для произвольного S (удовлетворяющего FinSetSpec)
 
+\func arrayIntersection {A : DecSet} (a b : ArraySet A) : ArraySet A \elim a, b
+  | in~ a, in~ b => in~ $ filter (\lam a' => \case find (dec_decide $ decideEq a' __) b \with {
+    | inl (j, _ : a' = b j, _) => true
+    | inr _ => false
+  }) a
+  | in~ a, ~-equiv x y r => {?}
+  | ~-equiv x y r, in~ a => {?}
+
+\func intersection {S : FinSetSpec} (a b : S) : S => arraySetEquiv (arrayIntersection (Retraction.sec {arraySetEquiv} a) (Retraction.sec {arraySetEquiv} b))
 
 -- 7. Мы не можем определить функцию size в общем случае, но мы можем определить предикат S -> Nat -> \Prop,
 --    соответствующий \lam xs n => size xs <= n
