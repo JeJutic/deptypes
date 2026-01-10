@@ -26,18 +26,42 @@
 
 -- 2. Определите функции сложения и умножения для Int
 
--- in progress...
 \func \infixl 6 + (x y : Int) : Int \with
   | pos n, pos n1 => pos (n Nat.+ n1)
-  | pos n, neg n1 => \case LinearOrder.trichotomy n n1 \with {
-    | less _ => neg $ n1 - n
+  | pos n, neg (suc n1) => \case LinearOrder.trichotomy n (suc n1) \with {
+    | less _ => neg $ (suc n1) - n
     | equals _ => pos 0
-    | greater _ => pos $ n - n1
+    | greater _ => pos $ n - (suc n1)
   }
-  | neg n, pos n1 => {?}
-  | neg n, neg n1 => neg (n Nat.+ n1)
+  | neg (suc n), pos n1 => \case LinearOrder.trichotomy (suc n) n1 \with {
+    | less _ => pos $ n1 - (suc n)
+    | equals _ => pos 0
+    | greater _ => neg $ (suc n) - n1
+  }
+  | neg (suc n), neg (suc n1) => neg ((suc n) Nat.+ (suc n1))
 
-\func \infixl 7 * (x y : Int) : Int => {?}
+\func test+1 : 0 + neg 1 = neg 1 => idp
+\func test+3 : 1 + neg 1 = 0 => idp
+\func test+4 : 1 + pos 0 = 1 => idp
+\func test+5 : neg 1 + neg 1 = neg 2 => idp
+\func test+6 : neg 1 + pos 0 = neg 1 => idp
+\func test+7 : neg 1 + 1 = 0 => idp
+
+\func \infixl 7 * (x y : Int) : Int \with
+  | pos n, pos n1 => pos (n Nat.* n1)
+  | pos n, neg (suc n1) => neg (n Nat.* (suc n1))
+  | neg (suc n), pos n1 => neg ((suc n) Nat.* n1)
+  | neg (suc n), neg (suc n1) => pos ((suc n) Nat.* (suc n1))
+
+\func test*1 : 0 * neg 1 = 0 => idp
+\func test*3 : 1 * neg 1 = neg 1 => idp
+\func test*4 : 1 * pos 0 = 0 => idp
+\func test*5 : neg 1 * neg 1 = pos 1 => idp
+\func test*6 : neg 1 * pos 0 = 0 => idp
+\func test*7 : neg 1 * 1 = neg 1 => idp
+\func test*8 : neg 2 * neg 2 = pos 4 => idp
+\func test*9 : neg 2 * pos 0 = 0 => idp
+\func test*1- : neg 2 * 2 = neg 4 => idp
 
 -- 3. Определите тип данных BinNat для бинарных натуральных чисел
 --    У него должно быть три конструктора: для 0, для чисел вида 2*n и чисел вида 2*n+1
@@ -129,7 +153,13 @@
 -- Optional
 -- 9. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны
 
-\func odd-or-even (x : Nat) : Or (\Sigma (n : Nat) (x = n Nat.* 2)) (\Sigma (n : Nat) (x = n Nat.* 2)) => {?}
+\func odd-or-even (n : Nat) : Or (\Sigma (x : Nat) (n = x Nat.* 2 Nat.+ 1)) (\Sigma (x : Nat) (n = x Nat.* 2)) \with
+  | 0 => inr (0, idp)
+  | suc 0 => inl (0, idp)
+  | suc (suc x) => \case odd-or-even x \with {
+    | inl (n, p) => inl (suc n, pmap (suc $ suc __) p)
+    | inr (n, p) => inr (suc n, pmap (suc $ suc __) p)
+  }
 
 -- \func NatToBinNat (n : Nat) : BinNat \elim n
 --   | 0 => zero
@@ -138,15 +168,15 @@
 --     | inr (n1, _) => x2 (NatToBinNat n)
 --   }
 
-\func helper (doubled : Nat) (n : Nat) : BinNat \elim n
-  | 0 => x2 $ NatToBinNat doubled
-  | suc 0 => x2+1 $ NatToBinNat doubled
-  | suc (suc n) => helper (suc doubled) n
+\func helper (n : Nat) (fuel : Nat) : BinNat \with
+  | _, 0 => zero
+  | 0, _ => zero
+  | suc n, suc fuel => \case odd-or-even (suc n) \with {
+    | inl (n, p) => x2+1 (helper n fuel)
+    | inr (n, p) => x2 (helper n fuel)
+  }
 
-\func NatToBinNat (n : Nat) : BinNat \elim n
-  | 0 => zero
-  | suc 0 => x2+1 zero
-  | suc (suc n) => helper (suc 0) n
+\func NatToBinNat (n : Nat) : BinNat => helper n (suc n)
 
 \func BinNatToNat (b : BinNat) : Nat \elim b
   | zero => 0
