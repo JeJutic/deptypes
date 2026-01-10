@@ -1,8 +1,9 @@
 \import Arith.Nat
-\import Data.Array (++, Index, filter, find, index-dec, keep, nub)
+\import Data.Array (++, Index, filter, find, index-dec, keep, nub, nub-isInj, nub-isSurj, nub-preimage, nub_id)
 \import Data.Bool
 \import Data.Or
 \import Equiv
+\import Equiv.Univalence
 \import Function
 \import Function.Meta
 \import Logic
@@ -13,7 +14,7 @@
 \import Paths.Meta
 \import Relation.Equivalence
 \import Set
-\import hw12 (not-truncPEmpty)
+\import hw12 (TruncP-flatMap, not-truncPEmpty)
 \import lect05 (unext)
 \import lect11 (equality=>equivalence)
 \import lect13
@@ -277,6 +278,87 @@
 --    чтобы множество \Sigma (P : A -> \Prop) (isFin (\Sigma (a : A) (P a))) удовлетворяло FinSetSpec
 --    Определите этот инстанс
 
+\func isFin (A : \Type) : \Prop => ∃ (n : Nat) (f : Fin n -> A) (isSurj f)  -- could use Array
+
+\func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (\Sigma (a : A) (P a))
+
+\func LimitedSet (A : \Type) : \Set => \Sigma (P : A -> \Prop) (ProofIsFin P) -- (isFin (\Sigma (a : A) (P a)))
+
+-- \func LimitedSet' (A : \Type) (P : A -> \Prop) : \Prop => LimitedSet A P
+
+\instance LimitedSetSet {A : \Set} : FinSetSpec {A} (LimitedSet A)
+  | isElem (a : A) (s : LimitedSet A) : \Prop => s.1 a
+  | set-ext {xs ys : LimitedSet A} (p : \Pi (a : A) -> xs.1 a <-> ys.1 a) : xs = ys =>
+  \have
+    | q (a : A) : xs.1 a = ys.1 a => <->_=.1 (p a)
+    | one-eq : xs.1 = ys.1 => ext q
+    | two-eq : transport ProofIsFin one-eq xs.2 = ys.2 => (<->_= {transport ProofIsFin one-eq xs.2} {ys.2}).1 {?} -- опять равенство сигм
+  \in transport id (inv $ QEquiv-to-= (sigmaEquiv ProofIsFin xs ys)) (one-eq, TruncP.truncP {transport ProofIsFin one-eq xs.2} (transport ProofIsFin one-eq xs.2) ys.2)
+  | empty : LimitedSet A => (\lam a => Empty, inP (0, \case __ \with {}, \lam (a, e) => absurd e))
+  | empty-prop {a : A} : Not (empty.1 a) => \lam e => e
+  | add (a : A) (s : LimitedSet A) : LimitedSet A =>
+  (\lam a1 => (a = a1) || s.1 a1, TruncP.map s.2 (\lam (n, f, p) => (suc n, \case __ \with {
+    | 0 => (a, byLeft idp)
+    | suc f1 => ((f f1).1, byRight (f f1).2)
+  }, \lam (a1, q) => TruncP-flatMap (||.toOr q) (\case __ \with {
+    | inl a=a1 => inP (0, {?})  -- sigmaEquiv (\lam a1 => (a = a1) || s.1 a1)  как доказать равенство сигм?
+    | inr a1_in_s => \have
+      | prev => p (a1, a1_in_s)
+                     \in TruncP.map prev (\lam (x', r) => (x', {?}))
+  }))))
+  | add-head {x : A} {xs : LimitedSet A} : (add x xs).1 x => byLeft idp
+  | add-tail {x y : A} {xs : LimitedSet A} (p : xs.1 x) : (add y xs).1 x => byRight p
+  | add-prop {x y : A} {xs : LimitedSet A} (p : (add x xs).1 y) : (x = y) || xs.1 y => p
+  | set-fin (s : LimitedSet A) : ∃ (xs : Array A) (\Pi (a : A) -> In a xs <-> s.1 a) =>
+  TruncP.map s.2 (\lam (n, f, q) => (\lam j => (f j).1, \lam c => (
+    \lam i => \case TruncP.map i (\lam in => transport s.1 in.2 (f in.1).2) \with {
+      | inP a => a
+    },
+    \lam _x => TruncP.map (q (c, _x)) (\lam _x1 => (_x1.1, pmap __.1 _x1.2)))))
 
 -- Optional
 -- 9. Определите NubArraySet (ArraySet без повторений) и инстанс FinSetSpec для него
+
+\func NubArray (A : DecSet) : \Set => \Sigma (l : Array A) (nub l = l)
+
+\func nubArray {A : DecSet} (l : Array A) : NubArray A => (nub l, nub_id nub-isInj)
+
+\func NubArraySet (A : DecSet) : \Set => Quotient {NubArray A} (\lam n n1 => EqArray n.1 n1.1)
+
+\func nubArraySetToSet {A : DecSet} {S : SetSpec {A}} (xs : NubArraySet A) : S \elim xs
+  | in~ (xs, _) => arrayToSet xs
+  | ~-equiv xs ys r => set-ext \lam a =>
+      ( \lam p => In-isElem $ (r a).1 $ isElem-In p
+      , \lam p => In-isElem $ (r a).2 $ isElem-In p
+      )
+
+\lemma nubArraySetToSet-inj {A : DecSet} {S : SetSpec {A}} : isInj (nubArraySetToSet {A} {S})
+  => \lam {xs} {ys} p => \case \elim xs, \elim ys, \elim p \with {
+    | in~ xs, in~ ys, p => path $ ~-equiv xs ys \lam a =>
+        ( \lam q => isElem-In $ transport (a `isElem` __) p $ In-isElem q
+        , \lam q => isElem-In $ transportInv (a `isElem` __) p $ In-isElem q
+        )
+  }
+
+\lemma In-nub-isElem {A : DecSet} {S : SetSpec {A}} {xs : Array A} {a : A} (p : In a xs) : S.isElem a (arrayToSet (nub xs)) =>
+  In-isElem (TruncP.map p (\lam (i, q) => \have
+    | (j, r) => nub-isSurj xs i
+                                          \in (j, r *> q)))
+
+\lemma isElem-nub-In {A : DecSet} {S : SetSpec {A}} {xs : Array A} {a : A} (p : S.isElem a (arrayToSet (nub xs))) : In a xs =>
+  TruncP.map (isElem-In p) (\lam (i, q) => \have
+    | (j, r) => nub-preimage i
+                                           \in (j, inv r *> q))
+
+\lemma nubArraySetToSet-surj {A : DecSet} {S : FinSetSpec {A}} : isSurj (nubArraySetToSet {A} {S})
+  => \lam s => \case set-fin s \with {
+    | inP (xs, p) => inP (in~ (nubArray xs), set-ext \lam x =>
+        ( \lam q => (p x).1 $ isElem-nub-In q
+        , \lam q => In-nub-isElem $ (p x).2 q
+        ))
+  }
+
+\func nubArraySetToSet=Set {A : DecSet} {S : FinSetSpec {A}} : NubArraySet A = S
+  => QEquiv-to-= $ Equiv.fromInjSurj nubArraySetToSet nubArraySetToSet-inj nubArraySetToSet-surj
+
+\func inst {A : DecSet} : FinSetSpec {A} (NubArraySet A) => transport (FinSetSpec {A} __) (inv (nubArraySetToSet=Set {A} {ArraySetSet {A}})) (ArraySetSet {A})
