@@ -282,39 +282,52 @@
 
 \func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (\Sigma (a : A) (P a))
 
-\func LimitedSet (A : \Type) : \Set => \Sigma (P : A -> \Prop) (ProofIsFin P) -- (isFin (\Sigma (a : A) (P a)))
+\func LimitedSet (A : \Type) : \Set => Quotient {\Sigma (P : A -> \Prop) (ProofIsFin P)} (\lam _x _x1 => _x.1 = _x1.1) -- (isFin (\Sigma (a : A) (P a)))
 
 -- \func LimitedSet' (A : \Type) (P : A -> \Prop) : \Prop => LimitedSet A P
 
 \instance LimitedSetSet {A : \Set} : FinSetSpec {A} (LimitedSet A)
-  | isElem (a : A) (s : LimitedSet A) : \Prop => s.1 a
-  | set-ext {xs ys : LimitedSet A} (p : \Pi (a : A) -> xs.1 a <-> ys.1 a) : xs = ys =>
-  \have
-    | q (a : A) : xs.1 a = ys.1 a => <->_=.1 (p a)
-    | one-eq : xs.1 = ys.1 => ext q
-    | two-eq : transport ProofIsFin one-eq xs.2 = ys.2 => (<->_= {transport ProofIsFin one-eq xs.2} {ys.2}).1 {?} -- опять равенство сигм
-  \in transport id (inv $ QEquiv-to-= (sigmaEquiv ProofIsFin xs ys)) (one-eq, TruncP.truncP {transport ProofIsFin one-eq xs.2} (transport ProofIsFin one-eq xs.2) ys.2)
-  | empty : LimitedSet A => (\lam a => Empty, inP (0, \case __ \with {}, \lam (a, e) => absurd e))
-  | empty-prop {a : A} : Not (empty.1 a) => \lam e => e
-  | add (a : A) (s : LimitedSet A) : LimitedSet A =>
-  (\lam a1 => (a = a1) || s.1 a1, TruncP.map s.2 (\lam (n, f, p) => (suc n, \case __ \with {
-    | 0 => (a, byLeft idp)
-    | suc f1 => ((f f1).1, byRight (f f1).2)
-  }, \lam (a1, q) => TruncP-flatMap (||.toOr q) (\case __ \with {
-    | inl a=a1 => inP (0, {?})  -- sigmaEquiv (\lam a1 => (a = a1) || s.1 a1)  как доказать равенство сигм?
-    | inr a1_in_s => \have
-      | prev => p (a1, a1_in_s)
-                     \in TruncP.map prev (\lam (x', r) => (x', {?}))
-  }))))
-  | add-head {x : A} {xs : LimitedSet A} : (add x xs).1 x => byLeft idp
-  | add-tail {x y : A} {xs : LimitedSet A} (p : xs.1 x) : (add y xs).1 x => byRight p
-  | add-prop {x y : A} {xs : LimitedSet A} (p : (add x xs).1 y) : (x = y) || xs.1 y => p
-  | set-fin (s : LimitedSet A) : ∃ (xs : Array A) (\Pi (a : A) -> In a xs <-> s.1 a) =>
-  TruncP.map s.2 (\lam (n, f, q) => (\lam j => (f j).1, \lam c => (
-    \lam i => \case TruncP.map i (\lam in => transport s.1 in.2 (f in.1).2) \with {
-      | inP a => a
-    },
-    \lam _x => TruncP.map (q (c, _x)) (\lam _x1 => (_x1.1, pmap __.1 _x1.2)))))
+  | isElem (a : A) (s : LimitedSet A) : \Prop \elim s {
+    | in~ s => s.1 a
+    | ~-equiv x y r => unext r a
+  }
+  | set-ext {xs ys : LimitedSet A} (p : \Pi (a : A) -> a `isElem` xs <-> a `isElem` ys) : xs = ys \elim xs, ys {
+    | in~ xs, in~ ys =>
+      \have
+        | q (a : A) : xs.1 a = ys.1 a => <->_=.1 (p a)
+      \in ~-pequiv (ext q)
+  }
+  | empty : LimitedSet A => in~ (\lam a => Empty, inP (0, \case __ \with {}, \lam (a, e) => absurd e))
+  | empty-prop {a : A} : Not (a `isElem` empty) => \lam e => e
+  | add (a : A) (s : LimitedSet A) : LimitedSet A \elim s {
+    | in~ s => in~ (\lam a1 => (a = a1) || s.1 a1, TruncP.map s.2 (\lam (n, f, p) => (suc n, \case __ \with {
+      | 0 => (a, byLeft idp)
+      | suc f1 => ((f f1).1, byRight (f f1).2)
+    }, \lam (a1, q) => TruncP-flatMap (||.toOr q) (\case __ \with {
+      | inl a=a1 => inP (0, {?})  -- sigmaEquiv (\lam a1 => (a = a1) || s.1 a1)  как доказать равенство сигм?
+      | inr a1_in_s => \have
+        | prev => p (a1, a1_in_s)
+                       \in TruncP.map prev (\lam (x', r) => (x', {?}))
+    }))))
+    | ~-equiv x y r => ~-pequiv (ext (\lam a1 => pmap {\Prop} {\Type} ((a = a1) || __) (unext r a1)))
+  }
+  | add-head {x : A} {xs : LimitedSet A} : x `isElem` add x xs \elim xs {
+    | in~ xs => \have q : x `isElem` add x (in~ xs) => byLeft idp \in q
+  }
+  | add-tail {x y : A} {xs : LimitedSet A} (p : x `isElem` xs) : x `isElem` add y xs \elim xs {
+    | in~ xs => \have q : x `isElem` add y (in~ xs) => byRight p \in q
+  }
+  | add-prop {x y : A} {xs : LimitedSet A} (p : y `isElem` add x xs) : (x = y) || y `isElem` xs \elim xs {
+    | in~ xs => \have q : (x = y) || y `isElem` in~ xs => p \in q
+  }
+  | set-fin (s : LimitedSet A) : ∃ (xs : Array A) (\Pi (a : A) -> In a xs <-> a `isElem` s) \elim s {
+    | in~ s =>
+      TruncP.map s.2 (\lam (n, f, q) => (\lam j => (f j).1, \lam c => (
+        \lam i => \case TruncP.map i (\lam in => transport s.1 in.2 (f in.1).2) \with {
+          | inP a => a
+        },
+        \lam _x => TruncP.map (q (c, _x)) (\lam _x1 => (_x1.1, pmap __.1 _x1.2)))))
+  }
 
 -- Optional
 -- 9. Определите NubArraySet (ArraySet без повторений) и инстанс FinSetSpec для него
