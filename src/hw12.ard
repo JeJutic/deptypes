@@ -1,6 +1,9 @@
+\import Data.Array
+\import Data.Or
 \import Function (o)
 \import Function.Meta
 \import Logic
+\import Logic.Meta
 \import Order.LinearOrder
 \import hw07 (contrProp)
 \import lect01 (-)
@@ -43,8 +46,8 @@
 
 \data BinNat
   | zero
-  | n2 (n : Nat) {x : Nat} (n * 2 = x) \with { 0, _ => zero }
-  | n21 (n : Nat) {x : Nat} (n * 2 + 1 = x)
+  | x2 BinNat \with { zero => zero }
+  | x2+1 BinNat
 
 -- 4. Докажите, что функция pred сюръективна
 
@@ -78,6 +81,7 @@
 --    то есть списков элементов A с точностью до перестановок и повторений элементов
 
 \data Set (A : \Set) : \Set
+  | set (s : A -> \Prop) (∃ (xs : Array A) (\Pi (a : A) -> TruncP (Index a xs) <-> s a))
 
 -- 8. Докажите теорему Кантора
 
@@ -125,9 +129,29 @@
 -- Optional
 -- 9. Постройте функции Nat -> BinNat и BinNat -> Nat и докажите, что они взаимно обратны
 
-\func NatToBinNat (n : Nat) : BinNat => {?}
+\func odd-or-even (x : Nat) : Or (\Sigma (n : Nat) (x = n Nat.* 2)) (\Sigma (n : Nat) (x = n Nat.* 2)) => {?}
 
-\func BinNatToNat (b : BinNat) : Nat => {?}
+-- \func NatToBinNat (n : Nat) : BinNat \elim n
+--   | 0 => zero
+--   | suc n => \case odd-or-even n \with {
+--     | inl (n1, _) => x2 (NatToBinNat n)
+--     | inr (n1, _) => x2 (NatToBinNat n)
+--   }
+
+\func helper (doubled : Nat) (n : Nat) : BinNat \elim n
+  | 0 => x2 $ NatToBinNat doubled
+  | suc 0 => x2+1 $ NatToBinNat doubled
+  | suc (suc n) => helper (suc doubled) n
+
+\func NatToBinNat (n : Nat) : BinNat \elim n
+  | 0 => zero
+  | suc 0 => x2+1 zero
+  | suc (suc n) => helper (suc 0) n
+
+\func BinNatToNat (b : BinNat) : Nat \elim b
+  | zero => 0
+  | x2 b => 2 Nat.* BinNatToNat b
+  | x2+1 b => 2 Nat.* BinNatToNat b Nat.+ 1
 
 \func nbn (n : Nat) : BinNatToNat (NatToBinNat n) = n => {?}
 
