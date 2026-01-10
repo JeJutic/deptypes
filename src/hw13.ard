@@ -6,6 +6,7 @@
 \import Equiv.Univalence
 \import Function
 \import Function.Meta
+\import HLevel
 \import Logic
 \import Logic.Meta
 \import Meta
@@ -14,6 +15,7 @@
 \import Paths.Meta
 \import Relation.Equivalence
 \import Set
+\import Set.Fin
 \import hw12 (TruncP-flatMap, not-truncPEmpty)
 \import lect05 (unext)
 \import lect11 (equality=>equivalence)
@@ -253,10 +255,33 @@
 
 \func nub-EqArray {A : DecSet} {xs ys : Array A} (p : EqArray xs ys) : EqArray (nub xs) ys => \lam a => (
   {?},
-  {?}
+  \lam i => TruncP.map i (\lam (j, q) => (p a).1 {?})
                                                                                                         )
 
-\func nub-len<= {A : DecSet} {xs ys : Array A} (p : EqArray xs ys) : DArray.len {nub xs} NatSemiring.<= DArray.len {ys} => {?}
+\lemma nub-len<= {A : DecSet} {xs ys : Array A} (p : EqArray (nub xs) ys) : DArray.len {nub xs} NatSemiring.<= DArray.len {ys} =>
+  FinSet.FinCardInj f' f-inj
+  \where {
+    \func f (ind : Fin (DArray.len {nub xs})) : Index ((nub xs) ind) ys =>
+--       (p ((nub xs) ind)).1 (\have preimage => nub-preimage ind \in inP ({?} preimage.1, inv preimage.2))
+        \case find (dec_decide $ DecSet.decideEq ((nub xs) ind) __) ys \with {
+          | inl (j, pj, _) => (j, inv pj)
+          | inr c => absurd (emp ind c)
+        }
+
+    \func emp (ind : Fin (DArray.len {nub xs})) (c : \Pi {j : Fin ys.len} -> dec_decide (A.decideEq (nub xs ind) (ys j)) -> Empty): Empty =>
+      not-truncPEmpty (TruncP.map ((p ((nub xs) ind)).1 (inP (ind, idp))) (\lam (i, r) => c {i} (inv r)))
+
+    \func f' (ind : Fin (DArray.len {nub xs})) : Fin (DArray.len {ys}) => (f ind).1
+
+    \func f-inj : isInj f' => \lam {a} {a'} (p1 : (f a).1 = (f a').1) =>
+        cases (find (dec_decide $ DecSet.decideEq ((nub xs) a) __) ys arg addPath, find (dec_decide $ DecSet.decideEq ((nub xs) a') __) ys arg addPath) \with {
+          | inl (j, pj, _), p, inl (j', pj', _), p' => cases ((j, inv pj) arg addPath, (j', inv pj') arg addPath) \with {
+            | (j2,pj2), p2, (j3,pj3), p3 => \have name : (f a) = (j2, pj2) => p1 \in {?}
+          }
+          | _, _, inr c, _ => absurd (emp a' c)
+          | inr c, _, _, _ => absurd (emp a c)
+        }
+  }
 
 \func size {A : DecSet} {S : FinSetSpec {A}} (s : S) : Nat => \case Retraction.sec {arraySetEquiv} s \with {
   | in~ a => DArray.len {nub a}
@@ -286,6 +311,11 @@
 
 -- \func LimitedSet' (A : \Type) (P : A -> \Prop) : \Prop => LimitedSet A P
 
+\func extend-func {A : \Type} {n : Nat} (f : Fin n -> A) (a : A) : Fin (suc n) -> (A, (a = a1) || s.1 a1) => \case __ \with {
+  | 0 => (a, byLeft idp)
+  | suc f1 => ((f f1).1, byRight (f f1).2)
+}
+
 \instance LimitedSetSet {A : \Set} : FinSetSpec {A} (LimitedSet A)
   | isElem (a : A) (s : LimitedSet A) : \Prop \elim s {
     | in~ s => s.1 a
@@ -304,7 +334,7 @@
       | 0 => (a, byLeft idp)
       | suc f1 => ((f f1).1, byRight (f f1).2)
     }, \lam (a1, q) => TruncP-flatMap (||.toOr q) (\case __ \with {
-      | inl a=a1 => inP (0, {?})  -- sigmaEquiv (\lam a1 => (a = a1) || s.1 a1)  как доказать равенство сигм?
+      | inl a=a1 => inP (0, pmap byLeft (isSet A a=a1))  -- sigmaEquiv (\lam a1 => (a = a1) || s.1 a1)  как доказать равенство сигм?
       | inr a1_in_s => \have
         | prev => p (a1, a1_in_s)
                        \in TruncP.map prev (\lam (x', r) => (x', {?}))
