@@ -1,5 +1,5 @@
 \import Arith.Nat
-\import Data.Array (++, filter, find, index-dec, keep, nub)
+\import Data.Array (++, Index, filter, find, index-dec, keep, nub)
 \import Data.Bool
 \import Data.Or
 \import Equiv
@@ -70,19 +70,35 @@
 
     \func isElem-func (s : S) : S.A -> \Prop => S.isElem __ s
 
-    -- взаимно рекурсивные мб
-    -- равенство пропов очев
-    \func add-isElem= {s1 s2 : S} {a : S.A} (p : isElem-func s1 = isElem-func s2) : isElem-func (S.add a s1) = isElem-func (S.add a s2) =>
-      ext (\lam _ => <->_=.1 (one-side p __, one-side (inv p) __))
-      \where {
-        \func one-side {s3 s4 : S} {a' : S.A} (q : isElem-func s3 = isElem-func s4) (r : isElem-func (S.add a s3) a') : isElem-func (S.add a s4) a' =>
-          \case S.add-prop r \with {
-            | byLeft a=a' => transport (S.isElem __ (S.add a s4)) a=a' S.add-head
-            | byRight a_in_s3 => S.add-tail (transport id (unext q a') a_in_s3)
-          }
-      }
+--     -- взаимно рекурсивные мб
+--     -- равенство пропов очев
+--     \func add-isElem= {s1 s2 : S} {a : S.A} (p : isElem-func s1 = isElem-func s2) : isElem-func (S.add a s1) = isElem-func (S.add a s2) =>
+--       ext (\lam _ => <->_=.1 (one-side p __, one-side (inv p) __))
+--       \where {
+--         \func one-side {s3 s4 : S} {a' : S.A} (q : isElem-func s3 = isElem-func s4) (r : isElem-func (S.add a s3) a') : isElem-func (S.add a s4) a' =>
+--           \case S.add-prop r \with {
+--             | byLeft a=a' => transport (S.isElem __ (S.add a s4)) a=a' S.add-head
+--             | byRight a_in_s3 => S.add-tail (transport id (unext q a') a_in_s3)
+--           }
+--       }
+--
+--     \func EqIsElem {S : SetSpec} (xs ys : S) : \Prop => \Pi (a : S.A) -> a S.`isElem` xs <-> a S.`isElem` ys
+--
+--     \func SetFactorized (S : SetSpec) : \Set => Quotient {S} EqIsElem
+--
+--     \func setFactorizedToSet {S : SetSpec} (xs : SetFactorized S) : S \elim xs
+--       | in~ xs => xs
+--       | ~-equiv xs ys r => {?}
+--
+--     \lemma in~-inj {S : SetSpec} : isInj (in~ {SetFactorized S})
+--       => \lam {xs} {ys} p => \case \elim xs, \elim ys, \elim p \with {
+--         | in~ xs, in~ ys, p => path $ ~-equiv xs ys \lam a =>
+--             ( \lam q => isElem-In $ transport (a `isElem` __) p $ In-isElem q
+--             , \lam q => isElem-In $ transportInv (a `isElem` __) p $ In-isElem q
+--             )
+--       }
 
-    \func isElem= {s1 s2 : S} (p : isElem-func s1 = isElem-func s2) : s1 = s2 => {?}
+    \func isElem= {s1 s2 : S} (p : isElem-func s1 = isElem-func s2) : s1 = s2 => S.set-ext {s1} {s2} (\lam a => <->_=.2 (unext p a))
   }
 
 
@@ -166,15 +182,59 @@
 
 -- 6. Определите функцию intersection {A : DecSet} : S -> S -> S для ArraySet и для произвольного S (удовлетворяющего FinSetSpec)
 
-\func arrayIntersection {A : DecSet} (a b : ArraySet A) : ArraySet A \elim a, b
-  | in~ a, in~ b => in~ $ keep (\lam a' => \case index-dec a a' \with {
-    | inl index : Index a a' => yes $ inP index
-    | inr notIndex => no (inP notIndex)
-  }) a
-  | in~ a, ~-equiv x y r => {?}
-  | ~-equiv x y r, in~ a => {?}
+\func index-dec' {A : DecSet} (l : Array A) (a : A) : Dec (In a l) =>
+  \case index-dec l a \with {
+  | inl index : Index a a' => yes $ inP index
+  | inr notIndex => no (\lam i => not-truncPEmpty $ TruncP.map i (\lam _x => notIndex _x))
+}
 
-\func intersection {S : FinSetSpec} (a b : S) : S => arraySetEquiv (arrayIntersection (Retraction.sec {arraySetEquiv} a) (Retraction.sec {arraySetEquiv} b))
+\func arrayIntersection {A : DecSet} (a b : ArraySet A) : ArraySet A \elim a
+  | in~ a => \case b \with {
+    | in~ b => in~ $ keep (index-dec' b __) a
+    | ~-equiv x y r => Quotient.~-equiv {Array A} {EqArray} (keep (index-dec' x) a) (keep (index-dec' y) a) (\lam c =>
+        \have
+          | one-side {x' y' : Array A} (r' : EqArray x' y') : In c (keep (index-dec' x') a) -> In c (keep (index-dec' y') a) =>
+            \case __ \with {
+              | inP (x_index, p) => TruncP.map ((r' c).1 (
+                \have index => keep.satisfies (index-dec' x' __) {a} {x_index}
+                \in TruncP.map index (\lam (ind, q) => (ind, q *> p))
+                                                         )) (\lam (y_index, q) => \have
+                | (j, preim-q) => keep.preimage x_index
+                | ajc : c = a j => inv p *> preim-q
+                | pp : In (a j) y' => inP (y_index, q *> ajc)
+                | in : Index (a j) (keep (index-dec' y') a) => keep.element pp
+                                                                                  \in (in.1, in.2 *> inv ajc))
+            }
+        \in
+          (
+            one-side r,
+            one-side (sym-EqArray r)
+          ))
+  }
+  | ~-equiv x y r => cases b \with {
+    | in~ b => Quotient.~-equiv {Array A} {EqArray} (keep (index-dec' b) x) (keep (index-dec' b) y) (\lam c =>
+        \have
+          | one-side {x' y' : Array A} (r' : EqArray x' y') : In c (keep (index-dec' b) x') -> In c (keep (index-dec' b) y') =>
+            \case __ \with {
+              | inP (x_index, p) => \have
+                | satis : In (keep (index-dec' b) x' x_index) b => keep.satisfies (index-dec' b __) {x'} {x_index}
+                | c_in_b : In c b => transport (In __ b) p satis
+                | (j, q-preim) => keep.preimage x_index
+                                    \in TruncP.map ((r' c).1 (inP (j, inv q-preim *> p))) (\lam (y_index, q) =>
+                \have
+                  | pp : In (y' y_index) b => transport (In __ b) (inv q) c_in_b
+                  | (elem, q-elem) => keep.element {A} {In __ b} {index-dec' b __} {y'} {y_index} pp
+                \in (elem, q-elem *> q)
+                                                                                          )
+            }
+        \in
+          (
+            one-side r,
+            one-side (sym-EqArray r)
+          ))
+  }
+
+\func intersection {A : DecSet}  {S : FinSetSpec {A}} (a b : S) : S => arraySetEquiv (arrayIntersection (Retraction.sec {arraySetEquiv} a) (Retraction.sec {arraySetEquiv} b))
 
 -- 7. Мы не можем определить функцию size в общем случае, но мы можем определить предикат S -> Nat -> \Prop,
 --    соответствующий \lam xs n => size xs <= n
