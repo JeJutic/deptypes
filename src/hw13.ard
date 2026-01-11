@@ -320,19 +320,29 @@
 
 \func isFin (A : \Type) : \Prop => ∃ (n : Nat) (f : Fin n -> A) (isSurj f)  -- could use Array
 
-\func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (\Sigma (a : A) (P a))
+\func Evidence {A : \Type} (P : A -> \Prop) => \Sigma (a : A) (P a)
+
+\func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (Evidence P)
 
 \func LimitedSet (A : \Type) : \Set => Quotient {\Sigma (P : A -> \Prop) (ProofIsFin P)} (\lam _x _x1 => _x.1 = _x1.1) -- (isFin (\Sigma (a : A) (P a)))
 
 -- \func LimitedSet' (A : \Type) (P : A -> \Prop) : \Prop => LimitedSet A P
 
-\func extend-func {A : \Set} {n : Nat} (f : Fin n -> A) (a : A) : Fin (suc n) -> A => \case __ \with {
-  | 0 => a
-  | suc f1 => f f1
-}
+\func ExtendedDomain {A : \Set} (P : A -> \Prop) (new-a : A) : A -> \Prop => \lam a => (new-a = a) || P a
 
-\func extend-func-surj {A : \Set} {n : Nat} {f : Fin n -> A} (a : A) (p : isSurj f) : isSurj (extend-func f a) =>
-  \lam y => {?}
+\func extend-func {A : \Set} {n : Nat} {P : A -> \Prop} (f : Fin n -> Evidence P) (a : A) : Fin (suc n) -> Evidence (ExtendedDomain P a) =>
+  \case __ \with {
+    | 0 => (a, byLeft idp)
+    | suc f1 => ((f f1).1, byRight (f f1).2)
+  }
+
+\func extend-func-surj {A : \Set} {n : Nat} {P : A -> \Prop} {f : Fin n -> Evidence P} (a : A) (p : isSurj f) : isSurj (extend-func f a) =>
+  \lam (a, extP) => \case extP \with {
+    | byLeft a1 => inP (0, cases (extend-func f a 0) \with {
+
+    })
+    | byRight b => TruncP.map (p (a, b)) (\lam (x, q) => (suc x, {?}))
+  }
 
 \instance LimitedSetSet {A : \Set} : FinSetSpec {A} (LimitedSet A)
   | isElem (a : A) (s : LimitedSet A) : \Prop \elim s {
@@ -349,20 +359,7 @@
   | empty-prop {a : A} : Not (a `isElem` empty) => \lam e => e
   | add (a : A) (s : LimitedSet A) : LimitedSet A \elim s {
     | in~ s =>
-    \have prp (a1 : A) => (a = a1) || s.1 a1 \in
-      in~ (\lam a1 => (a = a1) || s.1 a1, TruncP.map s.2 (\lam (n, f, p) =>
-        \have
---           | prpp => \Sigma (a1 : A) (prp a1)
-          | first-f : \Sigma (a1 : A) (s.1 a1) -> \Sigma (a1 : A) ((a = a1) || s.1 a1) => \lam _x => (_x.1, byRight _x.2)
-          | first-f-isSurj : isSurj first-f => \lam (a1, q) => cases (q arg addPath) \with {
-            | byLeft a2, q' => {?}  -- impossible
-            | byRight b, q' => inP ((a1, b), {?}) -- how to prove?
-          }
---           | exx : Fin n -> \Sigma (a1 : A) ((a = a1) || s.1 a1) => first-f o f -- ((f c).1, byRight (f c).2)
---           | exx => first-f o f -- ((f c).1, byRight (f c).2)
---           | exx-p : exx = first-f o f => ext (\lam a => {?}) -- ((f c).1, byRight (f c).2)
-          | exx-isSur : isSurj (first-f o f) => isSurj.comp {_} {_} {_} {f} p {first-f} first-f-isSurj
-        \in (suc n, extend-func {\Sigma (a1 : A) ((a = a1) || s.1 a1)} (first-f o f) (a, byLeft idp), extend-func-surj {_} {n} {first-f o f} ((a, byLeft idp : (a = a) || s.1 a) : \Sigma (a1 : A) ((a = a1) || s.1 a1)) exx-isSur)))
+      in~ (\lam a1 => (a = a1) || s.1 a1, TruncP.map s.2 (\lam (n, f, p) => (suc n, extend-func f a, extend-func-surj a p)))
     | ~-equiv x y r => ~-pequiv (ext (\lam a1 => pmap {\Prop} {\Type} ((a = a1) || __) (unext r a1)))
   }
   | add-head {x : A} {xs : LimitedSet A} : x `isElem` add x xs \elim xs {

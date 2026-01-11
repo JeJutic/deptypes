@@ -1,4 +1,5 @@
 \import Data.Array
+\import Data.Bool
 \import Data.Or
 \import Function (o)
 \import Function.Meta
