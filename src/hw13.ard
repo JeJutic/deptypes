@@ -251,12 +251,10 @@
 
 \func sym-EqArray {A : \Set} {xs ys : Array A} (p : EqArray xs ys) : EqArray ys xs => \lam a => <->sym (p a)
 
-\func nub-In-agnostic {A : DecSet} {l : Array A} : In (nub l) l => \lam a => {?} -- do we need it?
-
 \func nub-EqArray {A : DecSet} {xs ys : Array A} (p : EqArray xs ys) : EqArray (nub xs) ys => \lam a => (
-  {?},
-  \lam i => TruncP.map i (\lam (j, q) => (p a).1 {?})
-                                                                                                        )
+  \lam i => TruncP-flatMap i (\lam (j, q) => \have (c, d) => nub-preimage j \in (p a).1 (inP (c, inv d *> q))),
+  \lam i => TruncP-flatMap i (\lam (j, q) => TruncP.map ((p a).2 (inP (j, q))) (\lam (c, d) => \have e => nub-isSurj xs c \in (e.1, e.2 *> d)))
+)
 
 \lemma nub-len<= {A : DecSet} {xs ys : Array A} (p : EqArray (nub xs) ys) : DArray.len {nub xs} NatSemiring.<= DArray.len {ys} =>
   FinSet.FinCardInj f' f-inj
@@ -274,26 +272,43 @@
     \func f' (ind : Fin (DArray.len {nub xs})) : Fin (DArray.len {ys}) => (f ind).1
 
     \func f-inj : isInj f' => \lam {a} {a'} (p1 : (f a).1 = (f a').1) =>
-        cases (find (dec_decide $ DecSet.decideEq ((nub xs) a) __) ys arg addPath, find (dec_decide $ DecSet.decideEq ((nub xs) a') __) ys arg addPath) \with {
-          | inl (j, pj, _), p, inl (j', pj', _), p' => cases ((j, inv pj) arg addPath, (j', inv pj') arg addPath) \with {
-            | (j2,pj2), p2, (j3,pj3), p3 => \have name : (f a) = (j2, pj2) => p1 \in {?}
-          }
-          | _, _, inr c, _ => absurd (emp a' c)
-          | inr c, _, _, _ => absurd (emp a c)
-        }
+        \have
+--           | q : (f a) = transport (ys __ = (nub xs) a') p1 (f a') => ext p1 p
+            | q : ys (f a).1 = ys (f a').1 => pmap ys p1
+            | q' : (nub xs) a = (nub xs) a' => \have name : ys (f a).1 = (nub xs) a => (f a).2 \in (inv (f a).2) *> q *> ((f a').2)
+--           | q : (nub xs) a = (f a).1 => idp
+--           | q : (nub xs) a = (nub xs) a' => p1
+        \in nub-isInj q'
+
+--         cases (find (dec_decide $ DecSet.decideEq ((nub xs) a) __) ys arg addPath, find (dec_decide $ DecSet.decideEq ((nub xs) a') __) ys arg addPath) \with {
+--           | inl (j, pj, _x), p, inl (j', pj', _), p' => cases ((j, inv pj) arg addPath, (j', inv pj') arg addPath) \with {
+--             | (j2,pj2), p2, (j3,pj3), p3 => \have
+--               | r : j = (j2, pj2).1 => pmap __.1 p2
+--               | r1 : j = (j, inv pj).1 => r *> pmap __.1 (inv p2)
+--               | r2 : find (dec_decide $ DecSet.decideEq ((nub xs) a) __) ys = (inl ((j, inv pj).1, pj, _x)) => {?} -- transport (\lam j'' => find (dec_decide $ DecSet.decideEq ((nub xs) a) __) ys = (inl ((j'', inv pj).1, pj, _x))) r1 p
+--               | r3 : (f a).1 = j => r2
+--                                             \in {?}
+--           }
+--           | _, _, inr c, _ => absurd (emp a' c)
+--           | inr c, _, _, _ => absurd (emp a c)
+--         }
   }
 
 \func size {A : DecSet} {S : FinSetSpec {A}} (s : S) : Nat => \case Retraction.sec {arraySetEquiv} s \with {
   | in~ a => DArray.len {nub a}
   | ~-equiv x y r => \have
-    | nub-eq : EqArray x (nub y) => sym-EqArray $ nub-EqArray (sym-EqArray r)
-    | nub-eq' : EqArray y (nub x) => sym-EqArray (nub-EqArray r)
-                     \in <=-antisymmetric (nub-len<= nub-eq) (nub-len<= nub-eq')
+    | nub-eq : EqArray (nub y) x => nub-EqArray (sym-EqArray r)
+    | nub-eq' : EqArray (nub x) (nub y) => nub-EqArray (sym-EqArray nub-eq)
+                     \in <=-antisymmetric (nub-len<= nub-eq') (nub-len<= (sym-EqArray nub-eq'))
 }
 
 \func size=>size-le {A : DecSet} {S : FinSetSpec {A}} {n : Nat} (s : S) : size s NatSemiring.<= n = size-le s n =>
   <->_=.1 (
-    \lam size<=n => {?},
+    \lam size<=n => \case Retraction.sec {arraySetEquiv} s \with {
+      | in~ a => \have
+      p : size s = DArray.len {nub a} => idp  \with {}
+  \in {?}
+    },
     {?}
           )
 
