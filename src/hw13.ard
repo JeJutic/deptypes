@@ -322,7 +322,7 @@
 
 \func Evidence {A : \Type} (P : A -> \Prop) => \Sigma (a : A) (P a)
 
-\func evidence-equiv {A : \Type} (P : A -> \Prop) (ev1 ev2 : Evidence P) (p : ev1.1 = ev2.1) : ev1 = ev2 => {?}
+\func evidence-equiv {A : \Type} (P : A -> \Prop) (ev1 ev2 : Evidence P) (p : ev1.1 = ev2.1) : ev1 = ev2 => ext p
 
 \func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (Evidence P)
 
@@ -339,26 +339,10 @@
   }
 
 \func extend-func-surj {A : \Set} {n : Nat} {P : A -> \Prop} {f : Fin n -> Evidence P} (a : A) (p : isSurj f) : isSurj (extend-func f a) =>
-  \lam a1 => \case a1 \as a1', idp : a1' = a1 \with {
-    | (a', extP), a1'' => \case extP \as extP', idp : extP' = extP \with {
-      | byLeft a11, extP'' =>
---         mcases {1} \with {
---         | x, p'' => {?}
---       }
-              inP (0, \case extend-func f a 0 \as p', idp : p' = extend-func f a 0 \with {
-                | (c, d), q => \case d \as d', idp : d' = d \with {
-                  | byLeft a=c, d'' => inv q *> evidence-equiv (ExtendedDomain P a) (c, d) (a', extP) (inv a=c *> a11) *> a1'' -- inv (evidence-equiv (ExtendedDomain P a) (c, d) (a, byLeft idp) (inv a=c))
-                  -- \have q : (c, d) = (a, transport (ExtendedDomain P a __) (a=c) extP) => {?} \in {?} -- transport (ExtendedDomain P a __) (inv a=c) d
-                  | byRight b, d'' => \have gg : extend-func f a 0 = (c, byRight b) => {?}  -- как показать, что byRight (337-ая строка) в случае 0 невозможен?
-                }
-              }
-        )
-      | byRight b, extP'' => TruncP.map (p (a', b)) (\lam (x, q) => (suc x, \case extend-func f a (suc x) \as f', idp : f' = extend-func f a (suc x) \with {
-        | (c, d), f'' => \case d \as d', idp : d' = d \with {
-          | byLeft a=c, p1 => {?} -- как показать, byLeft в случае suc x невозможен?
-          | byRight pc, p1 => inv f'' *> {?} *> a1''  -- как показать, что если byRight (338-ая строка), то есть какой-то f1, по которому он получен?
-        }
-      }))
+  \case \elim __ \with {
+    | (a1, e) => \case \elim e \with {
+      | byLeft a2 => inP (0, evidence-equiv (ExtendedDomain P a) (extend-func f a 0) (a1, byLeft a2) (pmap __.1 (idp {_} {extend-func f a 0}) *> a2))
+      | byRight b => TruncP.map (p (a1, b)) (\lam (c, ind) => (suc c, evidence-equiv (ExtendedDomain P a) (extend-func f a (suc c)) (a1, byRight b) (pmap __.1 (idp {_} {extend-func f a (suc c)}) *> pmap __.1 ind)))
     }
   }
 
