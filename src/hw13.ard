@@ -322,6 +322,8 @@
 
 \func Evidence {A : \Type} (P : A -> \Prop) => \Sigma (a : A) (P a)
 
+\func evidence-equiv {A : \Type} (P : A -> \Prop) (ev1 ev2 : Evidence P) (p : ev1.1 = ev2.1) : ev1 = ev2 => {?}
+
 \func ProofIsFin {A : \Type} (P : A -> \Prop) : \Prop => isFin (Evidence P)
 
 \func LimitedSet (A : \Type) : \Set => Quotient {\Sigma (P : A -> \Prop) (ProofIsFin P)} (\lam _x _x1 => _x.1 = _x1.1) -- (isFin (\Sigma (a : A) (P a)))
@@ -330,18 +332,34 @@
 
 \func ExtendedDomain {A : \Set} (P : A -> \Prop) (new-a : A) : A -> \Prop => \lam a => (new-a = a) || P a
 
-\func extend-func {A : \Set} {n : Nat} {P : A -> \Prop} (f : Fin n -> Evidence P) (a : A) : Fin (suc n) -> Evidence (ExtendedDomain P a) =>
-  \case __ \with {
+\func extend-func {A : \Set} {n : Nat} {P : A -> \Prop} (f : Fin n -> Evidence P) (a : A) (fin : Fin (suc n)) : Evidence (ExtendedDomain P a) =>
+  \case fin \with {
     | 0 => (a, byLeft idp)
     | suc f1 => ((f f1).1, byRight (f f1).2)
   }
 
 \func extend-func-surj {A : \Set} {n : Nat} {P : A -> \Prop} {f : Fin n -> Evidence P} (a : A) (p : isSurj f) : isSurj (extend-func f a) =>
-  \lam (a, extP) => \case extP \with {
-    | byLeft a1 => inP (0, cases (extend-func f a 0) \with {
-
-    })
-    | byRight b => TruncP.map (p (a, b)) (\lam (x, q) => (suc x, {?}))
+  \lam a1 => \case a1 \as a1', idp : a1' = a1 \with {
+    | (a', extP), a1'' => \case extP \as extP', idp : extP' = extP \with {
+      | byLeft a11, extP'' =>
+--         mcases {1} \with {
+--         | x, p'' => {?}
+--       }
+              inP (0, \case extend-func f a 0 \as p', idp : p' = extend-func f a 0 \with {
+                | (c, d), q => \case d \as d', idp : d' = d \with {
+                  | byLeft a=c, d'' => inv q *> evidence-equiv (ExtendedDomain P a) (c, d) (a', extP) (inv a=c *> a11) *> a1'' -- inv (evidence-equiv (ExtendedDomain P a) (c, d) (a, byLeft idp) (inv a=c))
+                  -- \have q : (c, d) = (a, transport (ExtendedDomain P a __) (a=c) extP) => {?} \in {?} -- transport (ExtendedDomain P a __) (inv a=c) d
+                  | byRight b, d'' => \have gg : extend-func f a 0 = (c, byRight b) => {?}  -- как показать, что byRight (337-ая строка) в случае 0 невозможен?
+                }
+              }
+        )
+      | byRight b, extP'' => TruncP.map (p (a', b)) (\lam (x, q) => (suc x, \case extend-func f a (suc x) \as f', idp : f' = extend-func f a (suc x) \with {
+        | (c, d), f'' => \case d \as d', idp : d' = d \with {
+          | byLeft a=c, p1 => {?} -- как показать, byLeft в случае suc x невозможен?
+          | byRight pc, p1 => inv f'' *> {?} *> a1''  -- как показать, что если byRight (338-ая строка), то есть какой-то f1, по которому он получен?
+        }
+      }))
+    }
   }
 
 \instance LimitedSetSet {A : \Set} : FinSetSpec {A} (LimitedSet A)
