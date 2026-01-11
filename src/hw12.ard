@@ -16,6 +16,7 @@
 \import Logic
 \import Order.LinearOrder
 \import Paths
+\import lect13 (EqArray, In)
 
 -- 1. Определите функцию negPred : Int -> Int такую, что negPred x = x, если x > 0, и negPred x = x - 1, если x <= 0
 
@@ -104,8 +105,43 @@
 -- 7. Определите множество конечных подмножеств множества A,
 --    то есть списков элементов A с точностью до перестановок и повторений элементов
 
-\data Set (A : \Set) : \Set
-  | set (s : A -> \Prop) (∃ (xs : Array A) (\Pi (a : A) -> TruncP (Index a xs) <-> s a))
+\truncated \data Set (A : \Set) : \Set
+  | set (Array A)
+  | ~equiv {a b : Array A} (EqArray a b) : set a = set b
+
+\func a : Array Nat => \new DArray {
+  | len => 1
+  | at => \lam 0 => 1
+}
+
+\func b : Array Nat => \new DArray {
+  | len => 1
+  | at => \lam 0 => 0
+}
+
+\func c : Array Nat => \new DArray {
+  | len => 2
+  | at => \case __ \with {
+    | 0 => 1
+    | 1 => 1
+  }
+}
+
+\func a=a : (set a) = (set a) => idp
+\func a=a' : (set a) = (set a) => Set.~equiv {Nat} {a} {a} (\lam _ => (\lam b => b, \lam b => b))
+-- \func a/=b : (set a) /= (set b) => \lam p => unext p {?}
+
+\func in-a {n : Nat} (p : In n a) : n = 1 \elim p
+  | inP (0, q) => inv q
+
+\func in-c {n : Nat} (p : In n c) : n = 1 \elim p
+  | inP (0, q) => inv q
+  | inP (1, q) => inv q
+
+\func a=c : (set a) = (set c) => Set.~equiv {Nat} {a} {c} (\lam d => (
+  \lam q => inP (0, \have p' : d = 1 => in-a q \in inv p'),
+  \lam q => inP (0, \have p' : d = 1 => in-c q \in inv p')
+                                                                     ))
 
 -- 8. Докажите теорему Кантора
 
